@@ -6,13 +6,14 @@ import kotlin.time.Duration
 @Serializable
 data class SumGame(
    val id: String,
-   val cells: Array<CharArray>,
+   val cells: Array<ByteArray>,
    val sum: Int,
-   val plots: Short
-) {
+   val plots: Short,
+   val cells2: Array<ShortArray> = Array(0) { ShortArray(0) }
+   ) {
    override fun equals(other: Any?): Boolean {
       if (this === other) return true
-      if (javaClass != other?.javaClass) return false
+      if (other == null || this::class != other::class) return false
 
       other as SumGame
 
@@ -25,23 +26,31 @@ data class SumGame(
    }
 
    override fun hashCode(): Int {
-      var result: Int = sum + 0
+      var result = sum
       result = 31 * result + plots
       result = 31 * result + id.hashCode()
       result = 31 * result + cells.contentDeepHashCode()
       return result
    }
+
 }
 
 // to be Entity
 class SumGameEffort(
    val gameId: String,
    var elapsedTime: Duration,
-   val coloration: Array<CharArray>,
+   val coloration: Array<ByteArray>,
    val plotSums: IntArray,
+   val plotInError: BooleanArray,
    var solved: Boolean,
 ) {
-   constructor(gameId: String, coloration: Array<CharArray>, numberOfPlots: Short)
-       : this(gameId, Duration.ZERO, coloration, IntArray(numberOfPlots + 0), false)
+   constructor(gameId: String, coloration: Array<ByteArray>, numberOfPlots: Short) : this(
+      gameId,
+      Duration.ZERO,
+      coloration,
+      IntArray(numberOfPlots + 0),
+      BooleanArray(numberOfPlots + 0),
+      false
+   )
 }
 
