@@ -9,7 +9,6 @@ data class SumGame(
    val cells: Array<ByteArray>,
    val sum: Int,
    val plots: Short,
-   val cells2: Array<ShortArray> = Array(0) { ShortArray(0) }
    ) {
    override fun equals(other: Any?): Boolean {
       if (this === other) return true

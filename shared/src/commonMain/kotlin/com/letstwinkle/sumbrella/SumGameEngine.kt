@@ -3,8 +3,6 @@ package com.letstwinkle.sumbrella.screens.game
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
 
-private const val NULL_PLOT: Byte = 0
-
 class SumGameEngine(val game: SumGame, val effort: SumGameEffort) {
    private val lastColumn = game.cells[0].lastIndex
    private val lastRow = game.cells.lastIndex
@@ -67,5 +65,9 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) {
 
    private fun updateSolved() {
       effort.solved = effort.plotSums.all { it == game.sum } && !effort.plotInError.contains(true)
+   }
+
+   companion object {
+      const val NULL_PLOT: Byte = 0
    }
 }
