@@ -1,15 +1,21 @@
-package com.letstwinkle.sumbrella.screens.game
+package com.letstwinkle.sumbrella.engine
 
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
+import kotlinx.coroutines.flow.MutableStateFlow
 
-class SumGameEngine(val game: SumGame, val effort: SumGameEffort) {
+class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine {
+   override val plotErrorsObservable = List(game.plots.toInt() + 1) { i ->
+      if (i == 0) MutableStateFlow(false) else MutableStateFlow(effort.plotInError[i - 1])
+   }
+   override val solvedObservable = MutableStateFlow(effort.solved)
+
    private val lastColumn = game.cells[0].lastIndex
    private val lastRow = game.cells.lastIndex
 
    // restore the plotSums in the effort
    // TODO: don't need it, might as well persist plot sums
-   fun restorePlotSums() {
+   override fun restorePlotSums() {
       effort.plotSums.fill(0)
       effort.coloration.forEachIndexed { row, rowColoration ->
          rowColoration.forEachIndexed { col, cellColoration ->
@@ -20,7 +26,7 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) {
       }
    }
 
-   fun assignCell(row: Int, col: Int, plot: Byte) {
+   override fun assignCell(row: Int, col: Int, plot: Byte) {
       val cellValue = game.cells[row][col]
       val oldPlot = effort.coloration[row][col]
       if (oldPlot != NULL_PLOT) {
@@ -41,8 +47,10 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) {
 
    private fun checkError(plot: Byte) {
       if (plot == NULL_PLOT) return
+      var error = false
       val plotSum = effort.plotSums[plot - 1]
-      for (row in 0 .. lastRow) {
+
+      scan@ for (row in 0 .. lastRow) {
          for (col in 0 .. lastColumn) {
             if (effort.coloration[row][col] == plot) {
                if (plotSum != game.cells[row][col] + 0 &&
@@ -54,17 +62,20 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) {
                       )
                   )
                {
-                  effort.plotInError[plot - 1] = true
-                  return
+                  error = true
+                  break@scan
                }
             }
          }
       }
-      effort.plotInError[plot - 1] = false
+
+      effort.plotInError[plot - 1] = error
+      plotErrorsObservable[plot + 0].value = error
    }
 
    private fun updateSolved() {
       effort.solved = effort.plotSums.all { it == game.sum } && !effort.plotInError.contains(true)
+      solvedObservable.value = effort.solved
    }
 
    companion object {

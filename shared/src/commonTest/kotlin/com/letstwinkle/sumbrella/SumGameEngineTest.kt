@@ -1,8 +1,8 @@
 package com.letstwinkle.sumbrella
 
+import com.letstwinkle.sumbrella.engine.SumGameEngine
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
-import com.letstwinkle.sumbrella.screens.game.SumGameEngine
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertFalse

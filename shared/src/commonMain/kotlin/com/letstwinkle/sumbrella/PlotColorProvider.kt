@@ -10,6 +10,10 @@ interface PlotColorProvider {
 class StandardPlotColorProvider(val numberOfPlots: Int) : PlotColorProvider {
    override fun cellColorForPlot(number: Int): Color {
       return when (numberOfPlots) {
+         2 -> when (number) { // used for testing
+            1 -> Color(147, 217, 175)
+            else -> Color(245, 214, 131)
+         }
          4 -> when (number) {
             1 -> Color(147, 217, 175)
             2 -> Color(245, 214, 131)
