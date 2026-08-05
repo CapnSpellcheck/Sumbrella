@@ -2,6 +2,7 @@
 
 package com.letstwinkle.sumbrella
 
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,3 +26,6 @@ fun App() {
        SumGame(viewModel)
     }
 }
+
+
+inline fun SymmetricInOutEasing() = CubicBezierEasing(0.42f, 0f, 0.58f, 1.0f)

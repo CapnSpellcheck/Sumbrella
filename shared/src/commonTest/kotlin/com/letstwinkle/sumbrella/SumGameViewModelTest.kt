@@ -9,15 +9,9 @@ import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
 import com.letstwinkle.sumbrella.screens.game.SumGameViewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertContentEquals
-import kotlin.test.assertEquals
+import kotlin.test.*
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
@@ -77,11 +71,30 @@ class SumGameViewModelTest {
       advanceUntilIdle()
       assertContentEquals(listOf(Triple(0, 0, 1.toByte())), gameEngineFactory.lastEngine!!.assignCellCalls)
 
+      // test removing cell color : set coloration
+      gameEngineFactory.lastEngine!!.effort.coloration[0][0] = 1
+      sut.tapCell(0, 0)
+      advanceUntilIdle()
+      assertEquals(Triple(0, 0, 0.toByte()), gameEngineFactory.lastEngine!!.assignCellCalls.last())
+      assertEquals(2, gameEngineFactory.lastEngine!!.assignCellCalls.size)
+   }
+
+   @Test fun testActivatePlot() = runTest {
+      val gameEngineFactory = TestGameEngineFactory()
+      val sut = SumGameViewModel(
+         game_2x2,
+         gameEngineFactory = gameEngineFactory,
+         backgroundDispatcher = testDispatcher
+      )
+      sut.tapCell(0, 0)
+      advanceUntilIdle()
+
       sut.activatePlot(2)
-      sut.tapCell(0, 1)
+
+      sut.tapCell(0, 0)
       advanceUntilIdle()
       assertContentEquals(
-         listOf(Triple(0, 0, 1.toByte()), Triple(0, 1, 2.toByte())),
+         listOf(Triple(0, 0, 1.toByte()), Triple(0, 0, 2.toByte())),
          gameEngineFactory.lastEngine!!.assignCellCalls
       )
    }

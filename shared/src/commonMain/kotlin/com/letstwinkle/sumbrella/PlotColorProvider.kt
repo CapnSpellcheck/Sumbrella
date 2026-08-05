@@ -10,23 +10,23 @@ interface PlotColorProvider {
 class StandardPlotColorProvider(val numberOfPlots: Int) : PlotColorProvider {
    override fun cellColorForPlot(number: Int): Color {
       return when (numberOfPlots) {
-         2 -> when (number) { // used for testing
+         2 -> when (number) { // TODO: make a test PlotColorProvider
             1 -> Color(147, 217, 175)
             else -> Color(245, 214, 131)
          }
          4 -> when (number) {
-            1 -> Color(147, 217, 175)
+            1 -> Color(142, 217, 175)
             2 -> Color(245, 214, 131)
             3 -> Color(206, 178, 234)
-            4 -> Color(139, 95, 191)
+            4 -> Color(156, 199, 243)
             // 0 (no plot) falls here
             else -> Color.White
          }
          6 -> when (number) {
-            1 -> Color(147, 217, 175)
+            1 -> Color(142, 217, 175)
             2 -> Color(245, 214, 131)
             3 -> Color(206, 178, 234)
-            4 -> Color(139, 95, 191)
+            4 -> Color(156, 199, 243)
             5 -> Color(245, 185, 142)
             6 -> Color(243, 178, 205)
             // 0 (no plot) falls here
@@ -38,6 +38,11 @@ class StandardPlotColorProvider(val numberOfPlots: Int) : PlotColorProvider {
 
    override fun colorWellColorForPlot(number: Int): Color {
       return when (numberOfPlots) {
+         2 -> when (number) {
+            1 -> Color(46, 158, 98)
+            2 -> Color(217, 166, 45)
+            else -> Color.White
+         }
          4 -> when (number) {
             1 -> Color(46, 158, 98)
             2 -> Color(217, 166, 45)
