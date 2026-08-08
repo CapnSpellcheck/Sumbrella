@@ -5,10 +5,13 @@ import com.letstwinkle.sumbrella.model.SumGameEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine {
-   override val plotErrorsObservable = List(game.plots.toInt() + 1) { i ->
+   override val plotErrorsObservable = List(game.plots + 1) { i ->
       if (i == 0) MutableStateFlow(false) else MutableStateFlow(effort.plotInError[i - 1])
    }
    override val solvedObservable = MutableStateFlow(effort.solved)
+   override val plotSumsObservable = List(game.plots + 1) { i ->
+      if (i == 0) MutableStateFlow(0) else MutableStateFlow(effort.plotSums[i - 1])
+   }
 
    private val lastColumn = game.cells[0].lastIndex
    private val lastRow = game.cells.lastIndex
@@ -30,13 +33,13 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine 
       val cellValue = game.cells[row][col]
       val oldPlot = effort.coloration[row][col]
       if (oldPlot != NULL_PLOT) {
-         effort.plotSums[oldPlot - 1] -= cellValue
+         setSum(oldPlot, effort.plotSums[oldPlot - 1] - cellValue)
       }
 
       effort.coloration[row][col] = plot
 
       if (plot != NULL_PLOT) {
-         effort.plotSums[plot - 1] += cellValue
+         setSum(plot, effort.plotSums[plot - 1] + cellValue)
       }
 
       // is this plot in error?
@@ -76,6 +79,12 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine 
    private fun updateSolved() {
       effort.solved = effort.plotSums.all { it == game.sum } && !effort.plotInError.contains(true)
       solvedObservable.value = effort.solved
+   }
+
+   private fun setSum(plot: Byte, sum: Int) {
+      effort.plotSums[plot - 1] = sum
+      print("setSum($plot, $sum)")
+      plotSumsObservable[plot + 0].value = sum
    }
 
    companion object {

@@ -2,6 +2,7 @@
 
 package com.letstwinkle.sumbrella
 
+import androidx.compose.ui.graphics.Color
 import com.letstwinkle.TestScheduleSyncingClock
 import com.letstwinkle.sumbrella.engine.IGameEngine
 import com.letstwinkle.sumbrella.engine.IGameEngineFactory
@@ -10,8 +11,10 @@ import com.letstwinkle.sumbrella.model.SumGameEffort
 import com.letstwinkle.sumbrella.screens.game.SumGameViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.*
 import kotlin.test.*
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
@@ -34,10 +37,9 @@ class TestGameEngineFactory : IGameEngineFactory {
 
       override fun restorePlotSums() {}
 
-      override val plotErrorsObservable: List<MutableStateFlow<Boolean>>
-         get() = TODO("Not yet implemented")
-      override val solvedObservable: MutableStateFlow<Boolean>
-         get() = TODO("Not yet implemented")
+      override val plotErrorsObservable = List(game.plots + 1) { MutableStateFlow(false) }
+      override val plotSumsObservable = List(game.plots + 1) { MutableStateFlow(0) }
+      override val solvedObservable = MutableStateFlow(false)
    }
 
 }
@@ -49,64 +51,70 @@ class SumGameViewModelTest {
       3,
       2
    )
+   val game_3x3 = SumGame(
+      "",
+      arrayOf(byteArrayOf(1, 2, 3), byteArrayOf(3, 2, 1), byteArrayOf(2, 3, 1)),
+      6,
+      3
+   )
    val testDispatcher = StandardTestDispatcher()
+   lateinit var gameEngineFactory: TestGameEngineFactory
 
    @BeforeTest fun before() {
       Dispatchers.setMain(testDispatcher)
+      gameEngineFactory = TestGameEngineFactory()
    }
 
    @AfterTest fun after(){
       Dispatchers.resetMain()
    }
 
-   @Test fun testTapCell() = runTest {
-      val gameEngineFactory = TestGameEngineFactory()
-      val sut = SumGameViewModel(
-         game_2x2,
+   fun makeSUT(paramOverrides: Map<String, Any> = mapOf()): SumGameViewModel =
+      SumGameViewModel(
+         game = paramOverrides["game"] as SumGame? ?: game_2x2,
+         plotColorProvider = paramOverrides["plotColorProvider"] as IPlotColorProvider? ?: TestPlotColorProvider(),
+         backgroundDispatcher = testDispatcher,
          gameEngineFactory = gameEngineFactory,
-         backgroundDispatcher = testDispatcher
+         clock = paramOverrides["clock"] as Clock? ?: Clock.System,
       )
 
+   @Test fun testTapCell() = runTest {
+      val sut = makeSUT()
+
       sut.tapCell(0, 0)
       advanceUntilIdle()
-      assertContentEquals(listOf(Triple(0, 0, 1.toByte())), gameEngineFactory.lastEngine!!.assignCellCalls)
+      val gameEngine = gameEngineFactory.lastEngine!!
+      assertContentEquals(listOf(Triple(0, 0, 1.toByte())), gameEngine.assignCellCalls)
 
       // test removing cell color : set coloration
-      gameEngineFactory.lastEngine!!.effort.coloration[0][0] = 1
+      gameEngine.effort.coloration[0][0] = 1
       sut.tapCell(0, 0)
       advanceUntilIdle()
-      assertEquals(Triple(0, 0, 0.toByte()), gameEngineFactory.lastEngine!!.assignCellCalls.last())
-      assertEquals(2, gameEngineFactory.lastEngine!!.assignCellCalls.size)
+      assertEquals(Triple(0, 0, 0.toByte()), gameEngine.assignCellCalls.last())
+      assertEquals(2, gameEngine.assignCellCalls.size)
+   }
+
+   @Test fun testEyedropCel() {
+
    }
 
    @Test fun testActivatePlot() = runTest {
-      val gameEngineFactory = TestGameEngineFactory()
-      val sut = SumGameViewModel(
-         game_2x2,
-         gameEngineFactory = gameEngineFactory,
-         backgroundDispatcher = testDispatcher
-      )
+      val sut = makeSUT()
       sut.tapCell(0, 0)
       advanceUntilIdle()
-
       sut.activatePlot(2)
-
       sut.tapCell(0, 0)
       advanceUntilIdle()
+
+      val gameEngine = gameEngineFactory.lastEngine!!
       assertContentEquals(
          listOf(Triple(0, 0, 1.toByte()), Triple(0, 0, 2.toByte())),
-         gameEngineFactory.lastEngine!!.assignCellCalls
+         gameEngine.assignCellCalls
       )
    }
 
    @Test fun testStopwatch() = runTest {
-      val gameEngineFactory = TestGameEngineFactory()
-      val sut = SumGameViewModel(
-         game_2x2,
-         gameEngineFactory = gameEngineFactory,
-         backgroundDispatcher = testDispatcher,
-         clock = TestScheduleSyncingClock(testDispatcher.scheduler)
-      )
+      val sut = makeSUT(mapOf("clock" to TestScheduleSyncingClock(testDispatcher.scheduler)))
       val twoSeconds = 2000.toDuration(DurationUnit.MILLISECONDS)
 
       sut.resumeStopwatch()
@@ -129,7 +137,55 @@ class SumGameViewModelTest {
       sut.pauseStopwatch()
       advanceTimeBy(2000)
       assertEquals(twoSeconds, sut.elapsedTimeObservable.value)
-      assertEquals(twoSeconds + 1.milliseconds, gameEngineFactory.lastEngine!!.effort.elapsedTime)
+      val gameEngine = gameEngineFactory.lastEngine!!
+      assertEquals(twoSeconds + 1.milliseconds, gameEngine.effort.elapsedTime)
 
+   }
+
+   @Test fun testPlotTallies() = runTest {
+      val sut = makeSUT(mapOf("game" to game_3x3))
+
+      assertContentEquals(listOf("6", "6", "6"), sut.plotTalliesObservable.drop(1).map { it.value })
+
+      gameEngineFactory.lastEngine!!.plotSumsObservable[1].value = 4
+      gameEngineFactory.lastEngine!!.plotSumsObservable[2].value = 6
+      advanceUntilIdle()
+      assertContentEquals(listOf("2", "0", "6"), sut.plotTalliesObservable.drop(1).map { it.value })
+   }
+
+   @Test fun testPlotTallyColors() = runTest {
+      val sut = makeSUT(mapOf("game" to game_3x3))
+
+      assertContentEquals(listOf(Color.Black, Color.Black, Color.Black), sut.plotTallyColorsObservable.drop(1).map { it.value })
+
+      gameEngineFactory.lastEngine!!.plotSumsObservable[1].value = 8
+      gameEngineFactory.lastEngine!!.plotSumsObservable[2].value = 6
+      advanceUntilIdle()
+      assertContentEquals(listOf(Color.Red, Color.Green, Color.Black), sut.plotTallyColorsObservable.drop(1).map { it.value })
+   }
+
+   @Test fun testCellColors() = runTest {
+      val sut = makeSUT()
+      val color_0_0_0 = Color(0, 0, 0)
+      val color_10_0_0 = Color(10, 0, 0)
+      val color_20_0_0 = Color(20, 0, 0)
+
+      assertContentEquals(
+         listOf(listOf(color_0_0_0, color_0_0_0), listOf(color_0_0_0, color_0_0_0)),
+         sut.cellColorsObservable.map { it.map { it.value } }
+      )
+
+      sut.tapCell(0, 0)
+      assertContentEquals(
+         listOf(listOf(color_10_0_0, color_0_0_0), listOf(color_0_0_0, color_0_0_0)),
+         sut.cellColorsObservable.map { it.map { it.value } }
+      )
+
+      sut.activatePlot(2)
+      sut.tapCell(1, 1)
+      assertContentEquals(
+         listOf(listOf(color_10_0_0, color_0_0_0), listOf(color_0_0_0, color_20_0_0)),
+         sut.cellColorsObservable.map { it.map { it.value } }
+      )
    }
 }

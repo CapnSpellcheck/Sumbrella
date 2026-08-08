@@ -2,18 +2,14 @@ package com.letstwinkle.sumbrella
 
 import androidx.compose.ui.graphics.Color
 
-interface PlotColorProvider {
+interface IPlotColorProvider {
    fun cellColorForPlot(number: Int): Color
    fun colorWellColorForPlot(number: Int): Color
 }
 
-class StandardPlotColorProvider(val numberOfPlots: Int) : PlotColorProvider {
+class StandardPlotColorProvider(val numberOfPlots: Int) : IPlotColorProvider {
    override fun cellColorForPlot(number: Int): Color {
       return when (numberOfPlots) {
-         2 -> when (number) { // TODO: make a test PlotColorProvider
-            1 -> Color(147, 217, 175)
-            else -> Color(245, 214, 131)
-         }
          4 -> when (number) {
             1 -> Color(142, 217, 175)
             2 -> Color(245, 214, 131)
@@ -38,11 +34,6 @@ class StandardPlotColorProvider(val numberOfPlots: Int) : PlotColorProvider {
 
    override fun colorWellColorForPlot(number: Int): Color {
       return when (numberOfPlots) {
-         2 -> when (number) {
-            1 -> Color(46, 158, 98)
-            2 -> Color(217, 166, 45)
-            else -> Color.White
-         }
          4 -> when (number) {
             1 -> Color(46, 158, 98)
             2 -> Color(217, 166, 45)

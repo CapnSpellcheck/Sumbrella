@@ -3,7 +3,7 @@ package com.letstwinkle.sumbrella.screens.game
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.letstwinkle.sumbrella.PlotColorProvider
+import com.letstwinkle.sumbrella.IPlotColorProvider
 import com.letstwinkle.sumbrella.StandardPlotColorProvider
 import com.letstwinkle.sumbrella.engine.GameEngineFactory
 import com.letstwinkle.sumbrella.engine.IGameEngine
@@ -12,14 +12,13 @@ import com.letstwinkle.sumbrella.engine.SumGameEngine.Companion.NULL_PLOT
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.*
 import kotlin.time.*
 
 @OptIn(ExperimentalTime::class)
 class SumGameViewModel(
    val game: SumGame,
-   val plotColorProvider: PlotColorProvider = StandardPlotColorProvider(game.plots.toInt()),
+   val plotColorProvider: IPlotColorProvider = StandardPlotColorProvider(game.plots.toInt()),
    val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
    val gameEngineFactory: IGameEngineFactory = GameEngineFactory(),
    val clock: Clock = Clock.System,
@@ -29,6 +28,8 @@ class SumGameViewModel(
       get() = gameEngine.solvedObservable
    val plotStatusesObservable: List<StateFlow<Boolean>>
       get() = gameEngine.plotErrorsObservable
+   val plotTalliesObservable: List<StateFlow<String>>
+   val plotTallyColorsObservable: List<StateFlow<Color>>
    val elapsedTimeObservable: MutableStateFlow<Duration>
    val selectedPlotObservable = MutableStateFlow<Byte>(0)
 
@@ -51,12 +52,25 @@ class SumGameViewModel(
          plotInError = BooleanArray(game.plots.toInt()),
          solved = false
       )
+      gameEngine = gameEngineFactory.createGameEngine(game, effort)
       cellColorsObservable = List(game.cells.size) { i ->
          List(game.cells[i].size) { j ->
             MutableStateFlow(plotColorProvider.cellColorForPlot(effort.coloration[i][j].toInt()))
          }
       }
-      gameEngine = gameEngineFactory.createGameEngine(game, effort)
+      plotTalliesObservable = gameEngine.plotSumsObservable.map { plotSumFlow ->
+         plotSumFlow.mapState { plotSum -> (game.sum - plotSum).toString() }
+      }
+      plotTallyColorsObservable = gameEngine.plotSumsObservable.map { plotSumFlow ->
+         plotSumFlow.mapState { plotSum ->
+            when (game.sum.compareTo(plotSum)) {
+               1 -> Color.Black // TODO: Color promises
+               0 -> Color.Green
+               -1 -> Color.Red
+               else -> error(Unit)
+            }
+         }
+      }
       elapsedTimeObservable = MutableStateFlow(effort.elapsedTime)
    }
 
@@ -103,4 +117,12 @@ class SumGameViewModel(
       }
    }
 
+   private fun <T, K> StateFlow<T>.mapState(
+      transform: (data: T) -> K
+   ): StateFlow<K> {
+      return map {
+         transform(it)
+      }
+         .stateIn(viewModelScope, SharingStarted.Eagerly, transform(value))
+   }
 }
