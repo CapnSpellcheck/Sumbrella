@@ -35,7 +35,7 @@ data class SumGame(
 }
 
 // to be Entity
-class SumGameEffort(
+data class SumGameEffort(
    val gameId: String,
    var elapsedTime: Duration,
    val coloration: Array<ByteArray>,

@@ -4,7 +4,7 @@ import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
 import kotlinx.coroutines.flow.MutableStateFlow
 
-class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine {
+class SumGameEngine(val game: SumGame, effort: SumGameEffort) : IGameEngine {
    override val plotErrorsObservable = List(game.plots + 1) { i ->
       if (i == 0) MutableStateFlow(false) else MutableStateFlow(effort.plotInError[i - 1])
    }
@@ -13,11 +13,12 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine 
       if (i == 0) MutableStateFlow(0) else MutableStateFlow(effort.plotSums[i - 1])
    }
 
+   var effort: SumGameEffort = effort; private set
+
    private val lastColumn = game.cells[0].lastIndex
    private val lastRow = game.cells.lastIndex
 
    // restore the plotSums in the effort
-   // TODO: don't need it, might as well persist plot sums
    override fun restorePlotSums() {
       effort.plotSums.fill(0)
       effort.coloration.forEachIndexed { row, rowColoration ->
@@ -29,9 +30,11 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine 
       }
    }
 
-   override fun assignCell(row: Int, col: Int, plot: Byte) {
+   override fun assignCell(row: Int, col: Int, plot: Byte): UndoCommand {
       val cellValue = game.cells[row][col]
       val oldPlot = effort.coloration[row][col]
+      val undoAssign = UndoCommand.AssignCell(row, col, oldPlot)
+
       if (oldPlot != NULL_PLOT) {
          setSum(oldPlot, effort.plotSums[oldPlot - 1] - cellValue)
       }
@@ -46,6 +49,30 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine 
       checkError(oldPlot)
       checkError(plot)
       updateSolved()
+      return undoAssign
+   }
+
+   override fun erase(): UndoCommand {
+      val undo = UndoCommand.AssignAll(effort)
+      for (row in effort.coloration) {
+         row.fill(NULL_PLOT)
+      }
+      effort.plotSums.fill(0)
+      effort.plotInError.fill(false)
+      return undo
+   }
+
+   override fun performUndo(command: UndoCommand) {
+      when (command) {
+         is UndoCommand.AssignCell -> assignCell(command.row, command.col, command.plot)
+         is UndoCommand.AssignAll -> {
+            command.coloration.copyInto(effort.coloration)
+            for (plot in 1 .. game.plots) {
+               setSum(plot.toByte(), command.plotSums[plot - 1])
+               setPlotError(plot.toByte(), effort.plotInError[plot - 1])
+            }
+         }
+      }
    }
 
    private fun checkError(plot: Byte) {
@@ -72,8 +99,7 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine 
          }
       }
 
-      effort.plotInError[plot - 1] = error
-      plotErrorsObservable[plot + 0].value = error
+      setPlotError(plot, error)
    }
 
    private fun updateSolved() {
@@ -81,9 +107,14 @@ class SumGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine 
       solvedObservable.value = effort.solved
    }
 
+   private fun setPlotError(plot: Byte, error: Boolean) {
+      effort.plotInError[plot - 1] = error
+      plotErrorsObservable[plot + 0].value = error
+   }
+
    private fun setSum(plot: Byte, sum: Int) {
       effort.plotSums[plot - 1] = sum
-      print("setSum($plot, $sum)")
+      println("setSum($plot, $sum)")
       plotSumsObservable[plot + 0].value = sum
    }
 

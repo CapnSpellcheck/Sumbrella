@@ -9,6 +9,7 @@ import com.letstwinkle.sumbrella.engine.GameEngineFactory
 import com.letstwinkle.sumbrella.engine.IGameEngine
 import com.letstwinkle.sumbrella.engine.IGameEngineFactory
 import com.letstwinkle.sumbrella.engine.SumGameEngine.Companion.NULL_PLOT
+import com.letstwinkle.sumbrella.engine.UndoCommand
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
 import kotlinx.coroutines.*
@@ -32,6 +33,7 @@ class SumGameViewModel(
    val plotTallyColorsObservable: List<StateFlow<Color>>
    val elapsedTimeObservable: MutableStateFlow<Duration>
    val selectedPlotObservable = MutableStateFlow<Byte>(0)
+   val isUndoEnabledObservable = MutableStateFlow(false)
 
    // these don't change, so not flows
    val colorWellColors: List<Color> = IntRange(1, game.plots.toInt())
@@ -41,6 +43,7 @@ class SumGameViewModel(
    private val effort: SumGameEffort
    private val gameEngine: IGameEngine
    private var elapsedTimerJob: Job? = null
+   private var undoCommandStack = mutableListOf<UndoCommand>()
 
    init {
       activatePlot(1)
@@ -84,7 +87,9 @@ class SumGameViewModel(
       val selectedPlot = selectedPlotObservable.value
       val newPlot = if (effort.coloration[row][col] == selectedPlot) NULL_PLOT else selectedPlot
       viewModelScope.launch(backgroundDispatcher) {
-         gameEngine.assignCell(row, col, newPlot)
+         val undoCommand = gameEngine.assignCell(row, col, newPlot)
+         undoCommandStack.add(undoCommand)
+         isUndoEnabledObservable.value = true
       }
       val color = plotColorProvider.cellColorForPlot(newPlot.toInt())
       cellColorsObservable[row][col].value = color
@@ -115,6 +120,18 @@ class SumGameViewModel(
             delay(1000)
          }
       }
+   }
+
+   fun erase() {
+      val undoCommand = gameEngine.erase()
+      undoCommandStack.add(undoCommand)
+   }
+
+
+   fun undo() {
+      val command = undoCommandStack.removeLast()
+      gameEngine.performUndo(command)
+      isUndoEnabledObservable.value = undoCommandStack.isNotEmpty()
    }
 
    private fun <T, K> StateFlow<T>.mapState(

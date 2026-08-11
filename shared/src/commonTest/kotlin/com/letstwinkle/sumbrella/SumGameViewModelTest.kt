@@ -6,12 +6,12 @@ import androidx.compose.ui.graphics.Color
 import com.letstwinkle.TestScheduleSyncingClock
 import com.letstwinkle.sumbrella.engine.IGameEngine
 import com.letstwinkle.sumbrella.engine.IGameEngineFactory
+import com.letstwinkle.sumbrella.engine.UndoCommand
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
 import com.letstwinkle.sumbrella.screens.game.SumGameViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.*
 import kotlin.test.*
 import kotlin.time.Clock
@@ -30,9 +30,22 @@ class TestGameEngineFactory : IGameEngineFactory {
 
    class TestGameEngine(val game: SumGame, val effort: SumGameEffort) : IGameEngine {
       val assignCellCalls: List<Triple<Int, Int, Byte>> = mutableListOf()
+      var eraseCalls: Int = 0; private set
+      var undoCalls: Int = 0; private set
 
-      override fun assignCell(row: Int, col: Int, plot: Byte) {
+      override fun assignCell(row: Int, col: Int, plot: Byte): UndoCommand {
          (assignCellCalls as MutableList).add(Triple(row, col, plot))
+         return FAKE_UNDO_COMMAND
+      }
+
+      override fun erase(): UndoCommand {
+         eraseCalls += 1
+         return FAKE_UNDO_COMMAND
+      }
+
+      override fun performUndo(command: UndoCommand) {
+         assertEquals(command, FAKE_UNDO_COMMAND)
+         undoCalls += 1
       }
 
       override fun restorePlotSums() {}
@@ -40,6 +53,10 @@ class TestGameEngineFactory : IGameEngineFactory {
       override val plotErrorsObservable = List(game.plots + 1) { MutableStateFlow(false) }
       override val plotSumsObservable = List(game.plots + 1) { MutableStateFlow(0) }
       override val solvedObservable = MutableStateFlow(false)
+
+      companion object {
+         val FAKE_UNDO_COMMAND = UndoCommand.AssignCell(0, 0, 0)
+      }
    }
 
 }
@@ -84,7 +101,8 @@ class SumGameViewModelTest {
       sut.tapCell(0, 0)
       advanceUntilIdle()
       val gameEngine = gameEngineFactory.lastEngine!!
-      assertContentEquals(listOf(Triple(0, 0, 1.toByte())), gameEngine.assignCellCalls)
+      assertEquals(Triple(0, 0, 1.toByte()), gameEngine.assignCellCalls.first())
+      assertEquals(1, gameEngine.assignCellCalls.size)
 
       // test removing cell color : set coloration
       gameEngine.effort.coloration[0][0] = 1
@@ -187,5 +205,30 @@ class SumGameViewModelTest {
          listOf(listOf(color_10_0_0, color_0_0_0), listOf(color_0_0_0, color_20_0_0)),
          sut.cellColorsObservable.map { it.map { it.value } }
       )
+   }
+
+   @Test fun testErase() {
+      val sut = makeSUT()
+      assertEquals(0, gameEngineFactory.lastEngine!!.eraseCalls)
+
+      sut.erase()
+      assertEquals(1, gameEngineFactory.lastEngine!!.eraseCalls)
+   }
+
+   @Test fun testUndo() = runTest {
+      val sut = makeSUT()
+
+      val gameEngine = gameEngineFactory.lastEngine!!
+      assertEquals(0, gameEngine.undoCalls)
+      assertEquals(false, sut.isUndoEnabledObservable.value)
+
+      sut.tapCell(0, 1)
+      advanceUntilIdle()
+      assertEquals(true, sut.isUndoEnabledObservable.value)
+
+      sut.undo()
+      advanceUntilIdle()
+      assertEquals(1, gameEngine.undoCalls)
+      assertEquals(false, sut.isUndoEnabledObservable.value)
    }
 }
