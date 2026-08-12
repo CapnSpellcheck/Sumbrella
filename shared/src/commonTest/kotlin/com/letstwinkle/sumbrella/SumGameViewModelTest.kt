@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.Color
 import com.letstwinkle.TestScheduleSyncingClock
 import com.letstwinkle.sumbrella.engine.IGameEngine
 import com.letstwinkle.sumbrella.engine.IGameEngineFactory
+import com.letstwinkle.sumbrella.engine.SumGameEngine.Companion.NULL_PLOT
 import com.letstwinkle.sumbrella.engine.UndoCommand
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.model.SumGameEffort
@@ -53,6 +54,7 @@ class TestGameEngineFactory : IGameEngineFactory {
       override val plotErrorsObservable = List(game.plots + 1) { MutableStateFlow(false) }
       override val plotSumsObservable = List(game.plots + 1) { MutableStateFlow(0) }
       override val solvedObservable = MutableStateFlow(false)
+      override val colorationsObservable = Array(game.cells.size) { Array(game.cells[0].size) { MutableStateFlow(NULL_PLOT)} }
 
       companion object {
          val FAKE_UNDO_COMMAND = UndoCommand.AssignCell(0, 0, 0)
@@ -182,36 +184,12 @@ class SumGameViewModelTest {
       assertContentEquals(listOf(Color.Red, Color.Green, Color.Black), sut.plotTallyColorsObservable.drop(1).map { it.value })
    }
 
-   @Test fun testCellColors() = runTest {
-      val sut = makeSUT()
-      val color_0_0_0 = Color(0, 0, 0)
-      val color_10_0_0 = Color(10, 0, 0)
-      val color_20_0_0 = Color(20, 0, 0)
-
-      assertContentEquals(
-         listOf(listOf(color_0_0_0, color_0_0_0), listOf(color_0_0_0, color_0_0_0)),
-         sut.cellColorsObservable.map { it.map { it.value } }
-      )
-
-      sut.tapCell(0, 0)
-      assertContentEquals(
-         listOf(listOf(color_10_0_0, color_0_0_0), listOf(color_0_0_0, color_0_0_0)),
-         sut.cellColorsObservable.map { it.map { it.value } }
-      )
-
-      sut.activatePlot(2)
-      sut.tapCell(1, 1)
-      assertContentEquals(
-         listOf(listOf(color_10_0_0, color_0_0_0), listOf(color_0_0_0, color_20_0_0)),
-         sut.cellColorsObservable.map { it.map { it.value } }
-      )
-   }
-
-   @Test fun testErase() {
+   @Test fun testErase() = runTest {
       val sut = makeSUT()
       assertEquals(0, gameEngineFactory.lastEngine!!.eraseCalls)
 
       sut.erase()
+      advanceUntilIdle()
       assertEquals(1, gameEngineFactory.lastEngine!!.eraseCalls)
    }
 

@@ -12,6 +12,11 @@ class SumGameEngine(val game: SumGame, effort: SumGameEffort) : IGameEngine {
    override val plotSumsObservable = List(game.plots + 1) { i ->
       if (i == 0) MutableStateFlow(0) else MutableStateFlow(effort.plotSums[i - 1])
    }
+   override val colorationsObservable = Array(game.cells.size) { i ->
+      Array(game.cells[0].size) { j ->
+         MutableStateFlow(effort.coloration[i][j])
+      }
+   }
 
    var effort: SumGameEffort = effort; private set
 
@@ -39,7 +44,7 @@ class SumGameEngine(val game: SumGame, effort: SumGameEffort) : IGameEngine {
          setSum(oldPlot, effort.plotSums[oldPlot - 1] - cellValue)
       }
 
-      effort.coloration[row][col] = plot
+      setColoration(row, col, plot)
 
       if (plot != NULL_PLOT) {
          setSum(plot, effort.plotSums[plot - 1] + cellValue)
@@ -52,13 +57,22 @@ class SumGameEngine(val game: SumGame, effort: SumGameEffort) : IGameEngine {
       return undoAssign
    }
 
+   private fun setColoration(row: Int, col: Int, plot: Byte) {
+      effort.coloration[row][col] = plot
+      colorationsObservable[row][col].value = plot
+   }
+
    override fun erase(): UndoCommand {
       val undo = UndoCommand.AssignAll(effort)
-      for (row in effort.coloration) {
-         row.fill(NULL_PLOT)
+      for (row in 0 .. effort.coloration.lastIndex) {
+         for (col in 0 .. effort.coloration[0].lastIndex) {
+            setColoration(row, col, NULL_PLOT)
+         }
       }
-      effort.plotSums.fill(0)
-      effort.plotInError.fill(false)
+      for (plot in 1 .. game.plots) {
+         setSum(plot.toByte(), 0)
+         setPlotError(plot.toByte(), false)
+      }
       return undo
    }
 
@@ -66,7 +80,11 @@ class SumGameEngine(val game: SumGame, effort: SumGameEffort) : IGameEngine {
       when (command) {
          is UndoCommand.AssignCell -> assignCell(command.row, command.col, command.plot)
          is UndoCommand.AssignAll -> {
-            command.coloration.copyInto(effort.coloration)
+            for (row in 0 .. effort.coloration.lastIndex) {
+               for (col in 0..effort.coloration[0].lastIndex) {
+                  setColoration(row, col, command.coloration[row][col])
+               }
+            }
             for (plot in 1 .. game.plots) {
                setSum(plot.toByte(), command.plotSums[plot - 1])
                setPlotError(plot.toByte(), effort.plotInError[plot - 1])

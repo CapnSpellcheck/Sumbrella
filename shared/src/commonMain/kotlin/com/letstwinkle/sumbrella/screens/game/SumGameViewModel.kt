@@ -15,6 +15,7 @@ import com.letstwinkle.sumbrella.model.SumGameEffort
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlin.time.*
+import kotlin.collections.removeLast as removeLastKt
 
 @OptIn(ExperimentalTime::class)
 class SumGameViewModel(
@@ -24,7 +25,7 @@ class SumGameViewModel(
    val gameEngineFactory: IGameEngineFactory = GameEngineFactory(),
    val clock: Clock = Clock.System,
 ) : ViewModel() {
-   val cellColorsObservable: List<List<MutableStateFlow<Color>>>
+   val cellColorsObservable: List<List<StateFlow<Color>>>
    val solvedObservable: StateFlow<Boolean>
       get() = gameEngine.solvedObservable
    val plotStatusesObservable: List<StateFlow<Boolean>>
@@ -56,7 +57,15 @@ class SumGameViewModel(
          solved = false
       )
       gameEngine = gameEngineFactory.createGameEngine(game, effort)
-      cellColorsObservable = List(game.cells.size) { i ->
+      cellColorsObservable = gameEngine.colorationsObservable.map { colorationRow ->
+         colorationRow.map { cellColorationFlow ->
+            cellColorationFlow.mapState { cellColoration ->
+               plotColorProvider.cellColorForPlot(cellColoration.toInt())
+            }
+         }
+      }
+
+         List(game.cells.size) { i ->
          List(game.cells[i].size) { j ->
             MutableStateFlow(plotColorProvider.cellColorForPlot(effort.coloration[i][j].toInt()))
          }
@@ -91,8 +100,6 @@ class SumGameViewModel(
          undoCommandStack.add(undoCommand)
          isUndoEnabledObservable.value = true
       }
-      val color = plotColorProvider.cellColorForPlot(newPlot.toInt())
-      cellColorsObservable[row][col].value = color
    }
 
    fun eyedropCell(row: Int, col: Int) {
@@ -123,14 +130,18 @@ class SumGameViewModel(
    }
 
    fun erase() {
-      val undoCommand = gameEngine.erase()
-      undoCommandStack.add(undoCommand)
+      viewModelScope.launch {
+         val undoCommand = gameEngine.erase()
+         undoCommandStack.add(undoCommand)
+      }
    }
 
 
    fun undo() {
-      val command = undoCommandStack.removeLast()
-      gameEngine.performUndo(command)
+      val command = undoCommandStack.removeLastKt()
+      viewModelScope.launch {
+         gameEngine.performUndo(command)
+      }
       isUndoEnabledObservable.value = undoCommandStack.isNotEmpty()
    }
 

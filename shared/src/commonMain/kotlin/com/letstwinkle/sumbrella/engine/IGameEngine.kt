@@ -12,4 +12,5 @@ interface IGameEngine {
    val plotErrorsObservable: List<MutableStateFlow<Boolean>>
    val plotSumsObservable: List<MutableStateFlow<Int>>
    val solvedObservable: MutableStateFlow<Boolean>
+   val colorationsObservable: Array<Array<MutableStateFlow<Byte>>>
 }

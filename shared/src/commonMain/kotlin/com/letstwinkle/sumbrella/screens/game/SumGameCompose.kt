@@ -9,7 +9,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme.typography
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,7 +40,9 @@ import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.toHHMMSS
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import sumbrella.shared.generated.resources.*
 import kotlin.time.ExperimentalTime
 
 private val digitFontSize = 36.dp
@@ -49,10 +53,11 @@ private val cellBorderColor = Color(228, 228, 231)
       GameHeader(viewModel, Modifier.padding(bottom = 12.dp))
       Board(viewModel, Modifier.padding(12.dp))
       PlotWellsAndStatuses(viewModel)
+      Buttons(viewModel)
    }
 }
 
-@Composable fun GameHeader(viewModel: SumGameViewModel, modifier: Modifier = Modifier) {
+@Composable private fun GameHeader(viewModel: SumGameViewModel, modifier: Modifier = Modifier) {
    val elapsedTime = viewModel.elapsedTimeObservable.collectAsStateWithLifecycle()
    val game = viewModel.game
 
@@ -75,7 +80,7 @@ private val cellBorderColor = Color(228, 228, 231)
    }
 }
 
-@Composable fun Board(viewModel: SumGameViewModel, modifier: Modifier) {
+@Composable private fun Board(viewModel: SumGameViewModel, modifier: Modifier) {
    val game = viewModel.game
    val digitSize = with(LocalDensity.current) { digitFontSize.toSp() }
    val boardWidth = game.cells[0].size
@@ -107,7 +112,7 @@ private val cellBorderColor = Color(228, 228, 231)
    }
 }
 
-@Composable fun Cell(value: Byte, color: StateFlow<Color>, fontSize: TextUnit, modifier: Modifier = Modifier) {
+@Composable private fun Cell(value: Byte, color: StateFlow<Color>, fontSize: TextUnit, modifier: Modifier = Modifier) {
    val cornerShape = RoundedCornerShape(14.dp)
    val modifier = modifier.clip(cornerShape).border(2.dp, cellBorderColor, cornerShape)
    val backColor = remember { mutableStateOf(color.value) }
@@ -148,7 +153,7 @@ private val cellBorderColor = Color(228, 228, 231)
 
 private val colorWellWidth = 56.dp
 
-@Composable fun PlotWellsAndStatuses(viewModel: SumGameViewModel) {
+@Composable private fun PlotWellsAndStatuses(viewModel: SumGameViewModel) {
    val cornerShape = RoundedCornerShape(14.dp)
    val selectedPlot = viewModel.selectedPlotObservable.collectAsStateWithLifecycle()
    Row(Modifier.fillMaxWidth(), spacedBy(16.dp, CenterHorizontally), CenterVertically) {
@@ -178,7 +183,7 @@ private val colorWellWidth = 56.dp
          }
       }
    }
-   Row(Modifier.fillMaxWidth().padding(top = 8.dp), spacedBy(16.dp, CenterHorizontally)) {
+   Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), spacedBy(16.dp, CenterHorizontally)) {
       for (plot in 1..viewModel.game.plots) {
          Text(
             viewModel.plotTalliesObservable[plot].collectAsStateWithLifecycle().value,
@@ -188,6 +193,22 @@ private val colorWellWidth = 56.dp
             textAlign = TextAlign.Center,
             color = viewModel.plotTallyColorsObservable[plot].collectAsStateWithLifecycle().value,
          )
+      }
+   }
+}
+
+@Composable private fun Buttons(viewModel: SumGameViewModel) {
+   Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = spacedBy(12.dp, CenterHorizontally)) {
+      val undoEnabled = viewModel.isUndoEnabledObservable.collectAsStateWithLifecycle()
+      OutlinedButton({ viewModel.undo() }, enabled = undoEnabled.value) {
+         Icon(painterResource(Res.drawable.undo), "undo")
+         Spacer(Modifier.width(8.dp))
+         Text("Undo")
+      }
+      OutlinedButton({ viewModel.erase() }) {
+         Icon(painterResource(Res.drawable.clear), "clear")
+         Spacer(Modifier.width(8.dp))
+         Text("Clear")
       }
    }
 }

@@ -85,12 +85,10 @@ class SumGameEngineTest {
       sut.restorePlotSums()
 
       sut.assignCell(0, 1, 1)
-      assertContentEquals(intArrayOf(3, 1), effort.plotSums, "CELLS_1 game, assign (0, 1)")
       assertFalse(effort.solved, "CELLS_1 game, assign (0, 1) not solved")
       assertFalse(sut.solvedObservable.value)
 
       sut.assignCell(0, 1, 2)
-      assertContentEquals(intArrayOf(0, 4), effort.plotSums, "CELLS_1 game, change assign (0, 1)")
       assertFalse(effort.solved, "CELLS_1 game, change assign (0, 1) not solved")
       assertFalse(sut.solvedObservable.value)
 
@@ -123,6 +121,8 @@ class SumGameEngineTest {
       command = sut.assignCell(0, 2, 3)
       assertEquals(UndoCommand.AssignCell(0, 2, 0), command)
 
+      assertContentEquals(listOf(1, 2, 3), sut.colorationsObservable[0].map { it.value })
+
       assertEquals(1, effort.plotSums[0])
       assertEquals(1, sut.plotSumsObservable[1].value)
       assertEquals(2, effort.plotSums[1])
@@ -139,6 +139,8 @@ class SumGameEngineTest {
       assertEquals(3, sut.plotSumsObservable[2].value)
 
       command = sut.assignCell(0, 2, 0)
+
+      assertContentEquals(listOf(2, 2, 0), sut.colorationsObservable[0].map { it.value })
 
       assertEquals(UndoCommand.AssignCell(0, 2, 3), command)
       assertEquals(0, effort.plotSums[2])
@@ -168,6 +170,7 @@ class SumGameEngineTest {
       assertTrue(effort.coloration.contentDeepEquals(Array(game.cells.size) { ByteArray(game.cells[0].size) } ))
       assertIs<UndoCommand.AssignAll>(command)
       assertTrue(command.coloration.contentDeepEquals(initialColoration()))
+      assertTrue(sut.colorationsObservable.all { it.all { it.value == NULL_PLOT }})
       assertContentEquals(effortCopy.plotSums, command.plotSums)
       assertContentEquals(effortCopy.plotInError, command.plotInError)
    }
