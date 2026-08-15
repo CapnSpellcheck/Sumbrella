@@ -8,7 +8,6 @@ class SumGameEngine(val game: SumGame, effort: SumGameEffort) : IGameEngine {
    override val plotErrorsObservable = List(game.plots + 1) { i ->
       if (i == 0) MutableStateFlow(false) else MutableStateFlow(effort.plotInError[i - 1])
    }
-   override val solvedObservable = MutableStateFlow(effort.solved)
    override val plotSumsObservable = List(game.plots + 1) { i ->
       if (i == 0) MutableStateFlow(0) else MutableStateFlow(effort.plotSums[i - 1])
    }
@@ -122,7 +121,6 @@ class SumGameEngine(val game: SumGame, effort: SumGameEffort) : IGameEngine {
 
    private fun updateSolved() {
       effort.solved = effort.plotSums.all { it == game.sum } && !effort.plotInError.contains(true)
-      solvedObservable.value = effort.solved
    }
 
    private fun setPlotError(plot: Byte, error: Boolean) {

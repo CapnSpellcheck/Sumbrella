@@ -38,6 +38,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.letstwinkle.sumbrella.SymmetricInOutEasing
 import com.letstwinkle.sumbrella.model.SumGame
 import com.letstwinkle.sumbrella.toHHMMSS
+import io.github.alexzhirkevich.compottie.LottieCompositionSpec
+import io.github.alexzhirkevich.compottie.animateLottieCompositionAsState
+import io.github.alexzhirkevich.compottie.rememberLottieComposition
+import io.github.alexzhirkevich.compottie.rememberLottiePainter
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import org.jetbrains.compose.resources.painterResource
@@ -49,11 +53,45 @@ private val digitFontSize = 36.dp
 private val cellBorderColor = Color(228, 228, 231)
 
 @Composable fun SumGame(viewModel: SumGameViewModel) {
-   Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-      GameHeader(viewModel, Modifier.padding(bottom = 12.dp))
-      Board(viewModel, Modifier.padding(12.dp))
-      PlotWellsAndStatuses(viewModel)
-      Buttons(viewModel)
+   val gameIsNotSolved = remember { mutableStateOf(!viewModel.gameIsSolved) }
+   LaunchedEffect(viewModel) {
+      viewModel.solvedEventObservable.collect {
+         gameIsNotSolved.value = false
+      }
+   }
+
+   Box {
+      Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+         GameHeader(viewModel, Modifier.padding(bottom = 8.dp))
+         Board(viewModel, gameIsNotSolved, Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
+         PlotWellsAndStatuses(viewModel, gameIsNotSolved)
+         if (gameIsNotSolved.value) {
+            Buttons(viewModel)
+         } else {
+            Text(
+               "Game is solved!",
+               Modifier.align(CenterHorizontally).padding(top = 12.dp),
+               style = typography.displaySmall
+            )
+         }
+      }
+      if (!gameIsNotSolved.value) {
+         val composition by rememberLottieComposition {
+            LottieCompositionSpec.JsonString(
+               Res.readBytes("files/lf20_u4yrau.json").decodeToString()
+            )
+         }
+         val progress by animateLottieCompositionAsState(composition)
+
+         Image(
+            painter = rememberLottiePainter(
+               composition = composition,
+               progress = { progress },
+            ),
+            contentDescription = "Congratulations effect",
+            Modifier.matchParentSize()
+         )
+      }
    }
 }
 
@@ -80,39 +118,47 @@ private val cellBorderColor = Color(228, 228, 231)
    }
 }
 
-@Composable private fun Board(viewModel: SumGameViewModel, modifier: Modifier) {
+@Composable private fun Board(viewModel: SumGameViewModel, enabledState: State<Boolean>, modifier: Modifier) {
    val game = viewModel.game
    val digitSize = with(LocalDensity.current) { digitFontSize.toSp() }
    val boardWidth = game.cells[0].size
-   repeat(game.cells.size) { row ->
-      val rowValues = game.cells[row]
-      Row(modifier) {
-         val modifier = Modifier.weight(1f).aspectRatio(1f)
-         repeat(boardWidth) { col ->
-            val colorState = viewModel.cellColorsObservable[row][col]
-            val interactionSource = remember { MutableInteractionSource() }
-            val onClick = {
-               viewModel.tapCell(row, col)
+   Column(modifier) {
+      repeat(game.cells.size) { row ->
+         val rowValues = game.cells[row]
+         Row {
+            val baseM = Modifier.weight(1f).aspectRatio(1f)
+            repeat(boardWidth) { col ->
+               val colorState = viewModel.cellColorsObservable[row][col]
+               val interactionSource = remember { MutableInteractionSource() }
+               val onClick = {
+                  viewModel.tapCell(row, col)
+               }
+               val modifier =
+                  if (viewModel.getPlot(row, col) == viewModel.selectedPlotObservable.value)
+                     baseM.clickable(interactionSource, null, enabledState.value, onClick = onClick)
+                  else baseM.combinedClickable(
+                     interactionSource,
+                     null,
+                     enabledState.value,
+                     onLongClick = { viewModel.eyedropCell(row, col) },
+                     onClick = onClick
+                  )
+               Cell(rowValues[col], colorState, digitSize, modifier)
+               if (col != boardWidth - 1)
+                  Spacer(Modifier.width(8.dp))
             }
-            val modifier =
-               if (viewModel.getPlot(row, col) == viewModel.selectedPlotObservable.value)
-                  modifier.clickable(interactionSource, null, onClick = onClick)
-               else modifier.combinedClickable(
-                  interactionSource,
-                  null,
-                  onLongClick = { viewModel.eyedropCell(row, col) },
-                  onClick = onClick
-               )
-            Cell(rowValues[col], colorState, digitSize, modifier)
-            if (col != boardWidth - 1)
-               Spacer(Modifier.width(8.dp))
          }
+         Spacer(Modifier.height(8.dp))
       }
-      Spacer(Modifier.height(8.dp))
    }
 }
 
-@Composable private fun Cell(value: Byte, color: StateFlow<Color>, fontSize: TextUnit, modifier: Modifier = Modifier) {
+@Composable private fun Cell(
+   value: Byte,
+   color: StateFlow<Color>,
+   fontSize: TextUnit,
+   modifier: Modifier = Modifier
+) {
    val cornerShape = RoundedCornerShape(14.dp)
    val modifier = modifier.clip(cornerShape).border(2.dp, cellBorderColor, cornerShape)
    val backColor = remember { mutableStateOf(color.value) }
@@ -153,10 +199,14 @@ private val cellBorderColor = Color(228, 228, 231)
 
 private val colorWellWidth = 56.dp
 
-@Composable private fun PlotWellsAndStatuses(viewModel: SumGameViewModel) {
+@Composable private fun PlotWellsAndStatuses(
+   viewModel: SumGameViewModel,
+   enabledState: State<Boolean>,
+   modifier: Modifier = Modifier
+) {
    val cornerShape = RoundedCornerShape(14.dp)
    val selectedPlot = viewModel.selectedPlotObservable.collectAsStateWithLifecycle()
-   Row(Modifier.fillMaxWidth(), spacedBy(16.dp, CenterHorizontally), CenterVertically) {
+   Row(modifier.fillMaxWidth(), spacedBy(16.dp, CenterHorizontally), CenterVertically) {
       val modifier =
          Modifier.height(48.dp).width(colorWellWidth).padding(horizontal = 4.dp).clip(cornerShape)
       val selectedModifier =
@@ -169,7 +219,7 @@ private val colorWellWidth = 56.dp
             Box(
                (if (selectedPlot.value.toInt() == plot) selectedModifier else modifier)
                   .background(bgcolor)
-                  .clickable { viewModel.activatePlot(plot) }
+                  .clickable(enabledState.value) { viewModel.activatePlot(plot) }
             )
             // TODO: this plot path error indication sucks. Make something custom.
             if (plotError.value) {
@@ -197,8 +247,8 @@ private val colorWellWidth = 56.dp
    }
 }
 
-@Composable private fun Buttons(viewModel: SumGameViewModel) {
-   Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = spacedBy(12.dp, CenterHorizontally)) {
+@Composable private fun Buttons(viewModel: SumGameViewModel, modifier: Modifier = Modifier) {
+   Row(modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = spacedBy(12.dp, CenterHorizontally)) {
       val undoEnabled = viewModel.isUndoEnabledObservable.collectAsStateWithLifecycle()
       OutlinedButton({ viewModel.undo() }, enabled = undoEnabled.value) {
          Icon(painterResource(Res.drawable.undo), "undo")
@@ -215,7 +265,17 @@ private val colorWellWidth = 56.dp
 
 @Composable
 @Preview(showBackground = true) fun boardPreview() {
-   val game = SumGame("", arrayOf(byteArrayOf(1, 2, 3, 4), byteArrayOf(3, 2, 1, 4), byteArrayOf(2, 3, 1, 4)), 7, 4)
+   val game = SumGame(
+      "",
+      arrayOf(
+         byteArrayOf(1, 1, 1, 1),
+         byteArrayOf(2, 2, 2, 2),
+         byteArrayOf(3, 3, 3, 3),
+         byteArrayOf(4, 4, 4, 4)
+      ),
+      10,
+      4
+   )
    val viewModel = SumGameViewModel(game)
    SumGame(viewModel)
 }

@@ -18,8 +18,8 @@ fun App() {
 
        val game = com.letstwinkle.sumbrella.model.SumGame(
           "",
-          arrayOf(byteArrayOf(1, 2, 3, 4), byteArrayOf(3, 2, 1, 4), byteArrayOf(2, 3, 1, 4)),
-          7,
+          arrayOf(byteArrayOf(1, 1, 1, 1), byteArrayOf(2, 2, 2, 2), byteArrayOf(3, 3, 3, 3), byteArrayOf(4, 4, 4, 4)),
+          10,
           4
        )
        val viewModel = viewModel<SumGameViewModel> { SumGameViewModel(game) }

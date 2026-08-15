@@ -9,13 +9,14 @@ androidx-core = "1.13.1"
 androidx-espresso = "3.7.0"
 androidx-lifecycle = "2.9.1"
 androidx-testExt = "1.3.0"
-composeMultiplatform = "1.9.3"
+composeMultiplatform = "1.10.3"
 junit = "4.13.2"
 kotlin = "2.2.20"
 kotlinxSerializationJson = "1.9.0"
 material3 = "1.9.0"
 multiplatform-logging = "1.4.2"
 kotlinx-coroutines = "1.9.0"
+compottie="2.1.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -37,6 +38,8 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-components-uiToolingPreview = { module = "org.jetbrains.compose.components:components-ui-tooling-preview", version.ref = "composeMultiplatform" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+compottie-lite = { module = "io.github.alexzhirkevich:compottie-lite", version.ref = "compottie" }
+compottie-resources = { module = "io.github.alexzhirkevich:compottie-resources", version.ref = "compottie" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

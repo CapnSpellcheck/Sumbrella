@@ -86,17 +86,14 @@ class SumGameEngineTest {
 
       sut.assignCell(0, 1, 1)
       assertFalse(effort.solved, "CELLS_1 game, assign (0, 1) not solved")
-      assertFalse(sut.solvedObservable.value)
 
       sut.assignCell(0, 1, 2)
       assertFalse(effort.solved, "CELLS_1 game, change assign (0, 1) not solved")
-      assertFalse(sut.solvedObservable.value)
 
       sut.assignCell(0, 1, 1)
       sut.assignCell(1, 0, 2)
       sut.assignCell(1, 1, 2)
       assertTrue(effort.solved, "CELLS_1 game, solved")
-      assertTrue(sut.solvedObservable.value)
    }
 
    @Test fun testAssignCell() {

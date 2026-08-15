@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.*
 import kotlin.time.*
 import kotlin.collections.removeLast as removeLastKt
 
+private val plotSuccessTextColor = Color(0xFF2E7D32)
+
 @OptIn(ExperimentalTime::class)
 class SumGameViewModel(
    val game: SumGame,
@@ -26,8 +28,6 @@ class SumGameViewModel(
    val clock: Clock = Clock.System,
 ) : ViewModel() {
    val cellColorsObservable: List<List<StateFlow<Color>>>
-   val solvedObservable: StateFlow<Boolean>
-      get() = gameEngine.solvedObservable
    val plotStatusesObservable: List<StateFlow<Boolean>>
       get() = gameEngine.plotErrorsObservable
    val plotTalliesObservable: List<StateFlow<String>>
@@ -35,6 +35,7 @@ class SumGameViewModel(
    val elapsedTimeObservable: MutableStateFlow<Duration>
    val selectedPlotObservable = MutableStateFlow<Byte>(0)
    val isUndoEnabledObservable = MutableStateFlow(false)
+   val solvedEventObservable = MutableSharedFlow<Unit>()
 
    // these don't change, so not flows
    val colorWellColors: List<Color> = IntRange(1, game.plots.toInt())
@@ -47,7 +48,6 @@ class SumGameViewModel(
    private var undoCommandStack = mutableListOf<UndoCommand>()
 
    init {
-      activatePlot(1)
       effort = SumGameEffort(
          gameId = game.id,
          elapsedTime = Duration.ZERO,
@@ -56,6 +56,8 @@ class SumGameViewModel(
          plotInError = BooleanArray(game.plots.toInt()),
          solved = false
       )
+      if (!effort.solved)
+         activatePlot(1)
       gameEngine = gameEngineFactory.createGameEngine(game, effort)
       cellColorsObservable = gameEngine.colorationsObservable.map { colorationRow ->
          colorationRow.map { cellColorationFlow ->
@@ -77,7 +79,7 @@ class SumGameViewModel(
          plotSumFlow.mapState { plotSum ->
             when (game.sum.compareTo(plotSum)) {
                1 -> Color.Black // TODO: Color promises
-               0 -> Color.Green
+               0 -> plotSuccessTextColor
                -1 -> Color.Red
                else -> error(Unit)
             }
@@ -85,6 +87,9 @@ class SumGameViewModel(
       }
       elapsedTimeObservable = MutableStateFlow(effort.elapsedTime)
    }
+
+   val gameIsSolved: Boolean
+      get() = effort.solved
 
    fun activatePlot(plotNumber: Int) {
       selectedPlotObservable.value = plotNumber.toByte()
@@ -99,6 +104,11 @@ class SumGameViewModel(
          val undoCommand = gameEngine.assignCell(row, col, newPlot)
          undoCommandStack.add(undoCommand)
          isUndoEnabledObservable.value = true
+         if (effort.solved) {
+            pauseStopwatch()
+            solvedEventObservable.emit(Unit)
+            activatePlot(0)
+         }
       }
    }
 
@@ -112,19 +122,23 @@ class SumGameViewModel(
    }
 
    fun pauseStopwatch() {
-      elapsedTimerJob?.cancel()
-      elapsedTimerJob = null
+      elapsedTimerJob?.let {
+         it.cancel()
+         elapsedTimerJob = null
+         effort.elapsedTime += clock.now() - stopwatchBase
+         stopwatchBase = Instant.DISTANT_FUTURE
+      }
       println("clock.now=${clock.now()} stopwatchBase=$stopwatchBase")
-      effort.elapsedTime += clock.now() - stopwatchBase
-      stopwatchBase = Instant.DISTANT_FUTURE
    }
 
    fun resumeStopwatch() {
-      stopwatchBase = clock.now()
-      elapsedTimerJob = viewModelScope.launch {
-         while (true) {
-            elapsedTimeObservable.value = clock.now() - stopwatchBase + effort.elapsedTime
-            delay(1000)
+      if (!effort.solved) {
+         stopwatchBase = clock.now()
+         elapsedTimerJob = viewModelScope.launch {
+            while (true) {
+               elapsedTimeObservable.value = clock.now() - stopwatchBase + effort.elapsedTime
+               delay(1000)
+            }
          }
       }
    }
